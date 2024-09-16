@@ -1,0 +1,89 @@
+---
+title: "Data Wrangling COVID Analysis"
+author: "Bilal Tariq"
+date: "2024-04-24"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(mosaic)
+library(Stat2Data)
+library(leaps)
+library(broom)
+library(rvest)
+library(methods)
+library(shiny)
+library(readxl)
+library(tidyverse)
+
+```
+
+
+
+COVID Cases Dataset:
+
+```{r pressure, echo = TRUE, warning = FALSE}
+
+#Importing dataset of covid cases
+casesCountryData <- read_csv("COVID Datasets/dailyCases.csv")
+
+#Importing dataset of latitudes and longitudes of each country, and getting rid of country codes
+latitudelongitudeData <- read_csv("COVID Datasets/latlong.csv") %>%
+  select(Country, Latitude, Longitude)
+
+#Selecting only the required columns from the cases dataset that we need for our leaflet map
+casesCountryDataSelected <- casesCountryData %>%
+  select(cases, deaths, countriesAndTerritories)
+  
+#Since the cases dataset is of daily cases per country in the year 2020, we are going to have to summarise the data and group by country
+casesCountryDataSummarized <- casesCountryDataSelected %>%
+  group_by(countriesAndTerritories) %>%
+  summarise(
+    Cases = sum(cases)
+  )
+
+#Renaming Countries and Territories to Countries for Simplicity
+names(casesCountryDataSummarized)[names(casesCountryDataSummarized) == "countriesAndTerritories"] <- "Countries"
+
+#We also have to clean up the dataset because some countries have '_' in their names
+#Since the code may be a bit too complicated for R, we will be exporting as a CSV
+#and manually adjusting the names of those countries
+
+write.csv(casesCountryDataSummarized, "CountryDataSummarizedNames.csv",row.names=FALSE)
+
+#Now read the corrected names dataset
+
+CorrectedNames <- read_csv("COVID Datasets/CountryDataSummarizedCorrectedNames.csv")
+
+#Merging the datasets into one so we have a country with its designated latitude and longitude alongside their cases
+casesCountryLatLong <- left_join(CorrectedNames, latitudelongitudeData, by = c("Countries" = "Country"))
+
+#saveRDS to be read by shiny application
+saveRDS(casesCountryLatLong, "CountryCases.rds")
+
+head(casesCountryLatLong)
+
+
+```
+
+
+LDA Topic Analysis Dataset:
+```{r pressure, echo=TRUE, warning = FALSE}
+
+topicAnalysisData <- read_excel("COVID Datasets/topicAnalysisData.xlsx")
+
+# The reason why we're filtering the Primary language to be English is because there were entries which weren't in English, which would not make it suitable for LDA topic analysis.
+
+topicAnalysisDataSelected <- topicAnalysisData %>%
+  select(Reported_On, Title, Publication_Date, Primary_Country, Primary_Language) %>%
+  filter(Primary_Language == "English")
+
+#Saving as an RDS
+
+saveRDS(topicAnalysisDataSelected, "LDATopicAnalysisData.rds")
+
+```
+
